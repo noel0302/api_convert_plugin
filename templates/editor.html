@@ -1,0 +1,99 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>API Convert - Visual Mapping Editor</title>
+  <style>
+    * { box-sizing: border-box; margin: 0; padding: 0; }
+    body { font-family: system-ui, sans-serif; padding: 20px; background: #f0f2f5; }
+    h1 { margin-bottom: 20px; color: #333; }
+    .editor { display: grid; grid-template-columns: 1fr 100px 1fr; gap: 10px; max-width: 1200px; margin: 0 auto; }
+    .field-panel { background: white; border-radius: 8px; padding: 15px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .field-panel h2 { font-size: 14px; color: #666; margin-bottom: 10px; text-transform: uppercase; letter-spacing: 1px; }
+    .field-item { padding: 8px 12px; margin: 4px 0; background: #f8f9fa; border-radius: 4px; cursor: pointer; font-size: 13px; border: 1px solid #e9ecef; }
+    .field-item:hover { background: #e3f2fd; border-color: #90caf9; }
+    .field-item.selected { background: #bbdefb; border-color: #42a5f5; }
+    .connection-panel { display: flex; align-items: center; justify-content: center; }
+    .connection-panel svg { width: 100%; height: 100%; }
+    .toolbar { margin: 20px 0; display: flex; gap: 10px; }
+    button { padding: 8px 16px; border: none; border-radius: 4px; cursor: pointer; font-size: 13px; }
+    .btn-primary { background: #0066cc; color: white; }
+    .btn-secondary { background: #6c757d; color: white; }
+    .btn-danger { background: #dc3545; color: white; }
+    .mapping-info { background: white; border-radius: 8px; padding: 15px; margin-top: 20px; box-shadow: 0 2px 4px rgba(0,0,0,0.1); }
+    .mapping-info pre { font-size: 12px; background: #f8f9fa; padding: 10px; border-radius: 4px; overflow-x: auto; }
+  </style>
+</head>
+<body>
+  <h1>Visual Mapping Editor</h1>
+  <p>이 에디터는 매핑 규칙의 시각적 편집을 위한 템플릿입니다.</p>
+  <div class="toolbar">
+    <button class="btn-primary" onclick="addMapping()">Add Mapping</button>
+    <button class="btn-secondary" onclick="autoMap()">Auto Map</button>
+    <button class="btn-danger" onclick="clearAll()">Clear All</button>
+    <button class="btn-secondary" onclick="exportJson()">Export JSON</button>
+  </div>
+  <div class="editor">
+    <div class="field-panel">
+      <h2>Source Fields</h2>
+      <div id="source-fields"></div>
+    </div>
+    <div class="connection-panel">
+      <svg id="connections" viewBox="0 0 100 500"></svg>
+    </div>
+    <div class="field-panel">
+      <h2>Target Fields</h2>
+      <div id="target-fields"></div>
+    </div>
+  </div>
+  <div class="mapping-info">
+    <h2>Mapping Data</h2>
+    <pre id="mapping-json">Load a mapping to begin editing</pre>
+  </div>
+
+  <script id="mapping-data" type="application/json">{"fieldMappings":[]}</script>
+  <script>
+    let mapping = JSON.parse(document.getElementById('mapping-data').textContent);
+
+    function render() {
+      const srcPanel = document.getElementById('source-fields');
+      const tgtPanel = document.getElementById('target-fields');
+      srcPanel.innerHTML = '';
+      tgtPanel.innerHTML = '';
+      const sources = new Set();
+      const targets = new Set();
+      for (const fm of mapping.fieldMappings) {
+        if (fm.sourceField) sources.add(Array.isArray(fm.sourceField) ? fm.sourceField[0] : fm.sourceField);
+        targets.add(fm.targetField);
+      }
+      for (const s of sources) {
+        const div = document.createElement('div');
+        div.className = 'field-item';
+        div.textContent = s;
+        srcPanel.appendChild(div);
+      }
+      for (const t of targets) {
+        const div = document.createElement('div');
+        div.className = 'field-item';
+        div.textContent = t;
+        tgtPanel.appendChild(div);
+      }
+      document.getElementById('mapping-json').textContent = JSON.stringify(mapping, null, 2);
+    }
+
+    function addMapping() { alert('Select a source and target field to create a mapping'); }
+    function autoMap() { alert('Auto-mapping requires API profile data'); }
+    function clearAll() { mapping.fieldMappings = []; render(); }
+    function exportJson() {
+      const blob = new Blob([JSON.stringify(mapping, null, 2)], { type: 'application/json' });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement('a');
+      a.href = url; a.download = 'mapping.json'; a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    render();
+  </script>
+</body>
+</html>

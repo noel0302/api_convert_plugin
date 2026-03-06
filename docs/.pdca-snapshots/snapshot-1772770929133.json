@@ -1,0 +1,293 @@
+{
+  "timestamp": "2026-03-06T04:22:09.133Z",
+  "reason": "compaction",
+  "status": {
+    "version": "2.0",
+    "lastUpdated": "2026-03-06T04:22:09.049Z",
+    "activeFeatures": [
+      "api-convert-plugin",
+      "api_convert_plugin",
+      "core",
+      "config.ts",
+      "storage.ts",
+      "log.ts",
+      "analyzer",
+      "parsers",
+      "mapper",
+      "templates"
+    ],
+    "primaryFeature": "api-convert-plugin",
+    "features": {
+      "api-convert-plugin": {
+        "phase": "design",
+        "startedAt": "2026-03-06T02:05:05.188Z",
+        "planDoc": "docs/01-plan/PLAN-api-convert-plugin.md",
+        "designDoc": "docs/02-design/features/api-convert-plugin.design.md"
+      },
+      "api_convert_plugin": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:17:30.314Z",
+          "lastUpdated": "2026-03-06T04:17:30.314Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/vitest.config.ts"
+      },
+      "core": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:17:44.555Z",
+          "lastUpdated": "2026-03-06T04:18:29.203Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/errors.ts"
+      },
+      "config.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:18:34.442Z",
+          "lastUpdated": "2026-03-06T04:18:34.442Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/services/config.ts"
+      },
+      "storage.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:18:52.456Z",
+          "lastUpdated": "2026-03-06T04:18:52.456Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/services/storage.ts"
+      },
+      "log.ts": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:19:01.051Z",
+          "lastUpdated": "2026-03-06T04:19:01.051Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/services/log.ts"
+      },
+      "analyzer": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:19:27.668Z",
+          "lastUpdated": "2026-03-06T04:20:23.024Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/analyzer/index.ts"
+      },
+      "parsers": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:19:41.899Z",
+          "lastUpdated": "2026-03-06T04:19:53.133Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/analyzer/parsers/curl-parser.ts"
+      },
+      "mapper": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:20:58.100Z",
+          "lastUpdated": "2026-03-06T04:21:38.795Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/mapper/index.ts"
+      },
+      "templates": {
+        "phase": "do",
+        "phaseNumber": 3,
+        "matchRate": null,
+        "iterationCount": 0,
+        "requirements": [],
+        "documents": {},
+        "timestamps": {
+          "started": "2026-03-06T04:21:58.967Z",
+          "lastUpdated": "2026-03-06T04:22:09.049Z"
+        },
+        "lastFile": "/home/noel/PhpstormProjects/api_convert_plugin/src/core/generator/templates/php.ts"
+      }
+    },
+    "pipeline": {
+      "currentPhase": 2,
+      "level": "Dynamic",
+      "phaseHistory": [
+        {
+          "phase": 1,
+          "completedAt": "2026-03-06T03:30:00.000Z"
+        }
+      ]
+    },
+    "session": {
+      "startedAt": "2026-03-06T02:05:05.188Z",
+      "onboardingCompleted": true,
+      "lastActivity": "2026-03-06T04:22:09.049Z"
+    },
+    "history": [
+      {
+        "action": "plan_completed",
+        "feature": "api-convert-plugin",
+        "timestamp": "2026-03-06T03:30:00.000Z"
+      },
+      {
+        "action": "design_started",
+        "feature": "api-convert-plugin",
+        "timestamp": "2026-03-06T04:00:00.000Z"
+      },
+      {
+        "timestamp": "2026-03-06T04:17:30.314Z",
+        "feature": "api_convert_plugin",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:17:44.555Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:17:53.695Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:00.617Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:02.831Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:07.338Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:08.258Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:29.203Z",
+        "feature": "core",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:34.442Z",
+        "feature": "config.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:18:52.456Z",
+        "feature": "storage.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:19:01.051Z",
+        "feature": "log.ts",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:19:27.668Z",
+        "feature": "analyzer",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:19:41.899Z",
+        "feature": "parsers",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:19:53.133Z",
+        "feature": "parsers",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:20:23.024Z",
+        "feature": "analyzer",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:20:58.100Z",
+        "feature": "mapper",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:21:38.795Z",
+        "feature": "mapper",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:21:58.967Z",
+        "feature": "templates",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:22:05.105Z",
+        "feature": "templates",
+        "phase": "do",
+        "action": "updated"
+      },
+      {
+        "timestamp": "2026-03-06T04:22:09.049Z",
+        "feature": "templates",
+        "phase": "do",
+        "action": "updated"
+      }
+    ]
+  }
+}

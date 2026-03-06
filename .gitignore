@@ -1,0 +1,7 @@
+node_modules/
+dist/
+.api-convert/
+*.log
+.idea/
+.env
+.env.*

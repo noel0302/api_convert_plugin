@@ -1,0 +1,32 @@
+{
+  "version": "1.0",
+  "enabled": true,
+  "teamName": "",
+  "feature": "api-convert-plugin",
+  "pdcaPhase": "do",
+  "orchestrationPattern": "leader",
+  "ctoAgent": "opus",
+  "startedAt": "2026-03-06T06:10:59.524Z",
+  "lastUpdated": "2026-03-06T06:12:42.871Z",
+  "teammates": [
+    {
+      "name": "a2074b53430ad5410",
+      "role": "bkit:report-generator",
+      "model": "sonnet",
+      "status": "completed",
+      "currentTask": null,
+      "taskId": null,
+      "startedAt": "2026-03-06T06:10:59.525Z",
+      "lastActivityAt": "2026-03-06T06:12:42.870Z"
+    }
+  ],
+  "progress": {
+    "totalTasks": 0,
+    "completedTasks": 0,
+    "inProgressTasks": 0,
+    "failedTasks": 0,
+    "pendingTasks": 0
+  },
+  "recentMessages": [],
+  "sessionId": "737aa17f-fa2f-4707-bc5b-59cf2b47dfd7"
+}

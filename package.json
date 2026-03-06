@@ -1,0 +1,29 @@
+{
+  "name": "api-convert-plugin",
+  "version": "0.1.0",
+  "description": "Claude Code plugin for mapping external API responses to business models",
+  "type": "module",
+  "main": "dist/index.js",
+  "bin": {
+    "api-convert-plugin": "dist/index.js"
+  },
+  "scripts": {
+    "build": "tsc",
+    "dev": "tsc --watch",
+    "test": "vitest",
+    "test:run": "vitest run",
+    "start": "node dist/index.js"
+  },
+  "dependencies": {
+    "@modelcontextprotocol/sdk": "^1.12.1",
+    "@apidevtools/swagger-parser": "^10.1.1"
+  },
+  "devDependencies": {
+    "typescript": "^5.7.0",
+    "vitest": "^3.0.0",
+    "@types/node": "^22.0.0"
+  },
+  "engines": {
+    "node": ">=20.0.0"
+  }
+}
