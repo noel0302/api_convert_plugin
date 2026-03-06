@@ -5,3 +5,5 @@ dist/
 .bkit
 .claude
 docs
+tests
+vitest.config.ts
