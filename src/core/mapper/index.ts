@@ -3,7 +3,7 @@ import type { ConfigService } from '../services/config.js';
 import type { LogService } from '../services/log.js';
 import type { FieldSchema, ObjectSchema } from '../types/profile.js';
 import type { TargetProfile, TargetFieldSchema, SupportedLanguage } from '../types/target.js';
-import type { MappingRule, FieldMapping, TransformationType } from '../types/mapping.js';
+import type { MappingRule, FieldMapping, MappingCandidate, TransformationType } from '../types/mapping.js';
 import type { ChangeSource, FieldChange } from '../types/history.js';
 import { calculateMatchScore, type MatchContext, type DescriptionContext } from './field-matcher.js';
 import { PluginError } from '../errors.js';
@@ -165,7 +165,10 @@ export class MapperModule {
 
     for (let targetIdx = 0; targetIdx < targetEntries.length; targetIdx++) {
       const [targetPath, targetField] = targetEntries[targetIdx];
-      let bestMatch: { sourceField: string; score: number; type: TransformationType } | null = null;
+
+      // top-3 후보 수집
+      const TOP_N = 3;
+      let topCandidates: { sourceField: string; score: ReturnType<typeof calculateMatchScore>; type: TransformationType }[] = [];
 
       for (let sourceIdx = 0; sourceIdx < sourceFields.length; sourceIdx++) {
         const [sourcePath, sourceField] = sourceFields[sourceIdx];
@@ -190,36 +193,57 @@ export class MapperModule {
         );
 
         // object 소스가 children을 가지고 있고 타겟이 scalar면 스킵
-        // (VehMakeModel 객체 대신 VehMakeModel.Name 리프를 선호)
         if (sourceField.type === 'object' && sourceField.children &&
             Object.keys(sourceField.children).length > 0 && targetField.type !== 'object') {
           continue;
         }
 
-        if (score.totalScore > (bestMatch?.score ?? 0)) {
-          bestMatch = {
-            sourceField: sourcePath,
-            score: score.totalScore,
-            type: this.determineTransformationType(sourceField, targetField, score.nameScore),
-          };
+        const candidate = {
+          sourceField: sourcePath,
+          score,
+          type: this.determineTransformationType(sourceField, targetField, score.nameScore),
+        };
+
+        if (topCandidates.length < TOP_N) {
+          topCandidates.push(candidate);
+          topCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
+        } else if (score.totalScore > topCandidates[TOP_N - 1].score.totalScore) {
+          topCandidates[TOP_N - 1] = candidate;
+          topCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
         }
       }
 
-      // strictMode: 모든 매핑을 ambiguous로 마킹 (사용자 확인 필요)
+      const bestMatch = topCandidates[0] ?? null;
       const ambiguousThreshold = options?.strictMode ? 1.0 : 0.9;
 
-      if (bestMatch && bestMatch.score >= 0.4) {
+      // candidates 배열 생성 (ambiguous일 때만)
+      const buildCandidates = (): MappingCandidate[] | undefined => {
+        if (topCandidates.length <= 1) return undefined;
+        return topCandidates.map(c => ({
+          sourceField: c.sourceField,
+          confidence: c.score.totalScore,
+          scoreBreakdown: {
+            nameScore: c.score.nameScore,
+            typeScore: c.score.typeScore,
+            descriptionBoost: c.score.descriptionBoost,
+          },
+          transformationType: c.type,
+        }));
+      };
+
+      if (bestMatch && bestMatch.score.totalScore >= 0.4) {
         mappedSourceFields.add(bestMatch.sourceField);
         const transformation = this.determineTransformation(bestMatch.sourceField, targetField, bestMatch.type);
+        const isAmbiguous = bestMatch.score.totalScore < ambiguousThreshold;
         mappings.push({
           sourceField: bestMatch.sourceField,
           targetField: targetPath,
           transformation,
-          confidence: bestMatch.score,
-          isAmbiguous: bestMatch.score < ambiguousThreshold,
+          confidence: bestMatch.score.totalScore,
+          isAmbiguous,
+          ...(isAmbiguous ? { candidates: buildCandidates() } : {}),
         });
-      } else if (bestMatch && bestMatch.score >= 0.3) {
-        // 낮은 신뢰도: default_value로 처리하되 후보를 userNote에 표시
+      } else if (bestMatch && bestMatch.score.totalScore >= 0.3) {
         mappings.push({
           sourceField: null,
           targetField: targetPath,
@@ -227,12 +251,12 @@ export class MapperModule {
             type: targetField.required ? 'constant' : 'default_value',
             config: { value: targetField.required ? undefined : null },
           },
-          confidence: bestMatch.score,
+          confidence: bestMatch.score.totalScore,
           isAmbiguous: true,
-          userNote: `낮은 신뢰도 후보: "${bestMatch.sourceField}" (${(bestMatch.score * 100).toFixed(0)}%). update_mapping으로 확인해주세요.`,
+          userNote: `낮은 신뢰도 후보: "${bestMatch.sourceField}" (${(bestMatch.score.totalScore * 100).toFixed(0)}%). update_mapping으로 확인해주세요.`,
+          candidates: buildCandidates(),
         });
       } else if (options?.includeNullHandling !== false) {
-        // 소스에 대응 필드 없음 (includeNullHandling=false이면 스킵)
         mappings.push({
           sourceField: null,
           targetField: targetPath,

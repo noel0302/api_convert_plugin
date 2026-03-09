@@ -34,6 +34,17 @@ export interface MappingRule {
   };
 }
 
+export interface MappingCandidate {
+  sourceField: string;
+  confidence: number;
+  scoreBreakdown: {
+    nameScore: number;
+    typeScore: number;
+    descriptionBoost: number;
+  };
+  transformationType: TransformationType;
+}
+
 export interface FieldMapping {
   sourceField: string | string[] | null;
   targetField: string;
@@ -44,6 +55,7 @@ export interface FieldMapping {
   confidence: number;
   isAmbiguous: boolean;
   userNote?: string;
+  candidates?: MappingCandidate[];
 }
 
 export type TransformationType =

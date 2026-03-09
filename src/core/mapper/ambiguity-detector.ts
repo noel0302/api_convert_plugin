@@ -22,13 +22,16 @@ export function detectAmbiguities(
 
   for (const fm of mappings) {
     if (fm.confidence < threshold && fm.confidence > 0) {
+      const currentSource = Array.isArray(fm.sourceField) ? fm.sourceField[0] : fm.sourceField;
       ambiguousFields.push({
         targetField: fm.targetField,
         currentMatch: {
-          sourceField: Array.isArray(fm.sourceField) ? fm.sourceField[0] : fm.sourceField,
+          sourceField: currentSource,
           confidence: fm.confidence,
         },
-        alternatives: [],
+        alternatives: (fm.candidates ?? [])
+          .filter(c => c.sourceField !== currentSource)
+          .map(c => ({ sourceField: c.sourceField, confidence: c.confidence })),
         reason: fm.confidence < 0.5
           ? '매우 낮은 신뢰도 - 수동 매핑 권장'
           : fm.confidence < 0.7
@@ -39,7 +42,8 @@ export function detectAmbiguities(
       ambiguousFields.push({
         targetField: fm.targetField,
         currentMatch: { sourceField: null, confidence: 0 },
-        alternatives: [],
+        alternatives: (fm.candidates ?? [])
+          .map(c => ({ sourceField: c.sourceField, confidence: c.confidence })),
         reason: '소스에 대응 필드 없음 - 값 지정 필요',
       });
     }
