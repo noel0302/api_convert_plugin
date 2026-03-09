@@ -56,7 +56,7 @@ const SYNONYM_MAP: Record<string, string[]> = {
   name: ['nm', 'title', 'label'],
   amount: ['amt', 'price', 'total', 'sum'],
   date: ['dt', 'datetime', 'timestamp', 'time'],
-  code: ['cd', 'id', 'key'],
+  code: ['cd'],
   status: ['st', 'state', 'phase'],
   description: ['desc', 'detail', 'comment', 'note'],
   email: ['mail', 'email_addr'],
@@ -66,9 +66,12 @@ const SYNONYM_MAP: Record<string, string[]> = {
   // 차량/렌탈 도메인
   seats: ['passenger', 'passenger_quantity', 'seating', 'pax'],
   doors: ['door_count', 'door_quantity', 'doorcount'],
-  model: ['veh_make_model', 'vehicle_model', 'car_model', 'make_model'],
+  model: ['veh_make_model', 'vehicle_model', 'car_model', 'make_model', 'car_category_sample'],
   transmission: ['trans', 'gear', 'gearbox'],
   air_condition: ['ac', 'aircon', 'air_conditioning', 'climate'],
+  sipp: ['car_category_code', 'acriss', 'vehicle_class', 'category_code'],
+  distance_limit: ['included_km', 'mileage_limit', 'km_limit', 'mileage_allowance'],
+  age_limit: ['age_policy', 'min_age', 'age_restriction', 'driver_age'],
   // 공통 API 필드
   image: ['img', 'photo', 'picture', 'thumbnail', 'pic'],
   count: ['cnt', 'quantity', 'qty'],
@@ -324,7 +327,7 @@ function calculateDescriptionBoost(
 
   if (matchCount === 0) return 0;
   const ratio = Math.min(matchCount / allKeywords.length, 1.0);
-  return 0.1 + ratio * 0.2;
+  return 0.15 + ratio * 0.35;
 }
 
 function extractKeywords(text: string): string[] {
