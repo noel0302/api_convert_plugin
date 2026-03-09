@@ -71,9 +71,8 @@ const SYNONYM_MAP: Record<string, string[]> = {
   air_condition: ['ac', 'aircon', 'air_conditioning', 'climate'],
   // 공통 API 필드
   image: ['img', 'photo', 'picture', 'thumbnail', 'pic'],
-  count: ['cnt', 'quantity', 'qty', 'num', 'total'],
-  identifier: ['id', 'key', 'uid', 'uuid', 'ref'],
-  active: ['enabled', 'is_active', 'available', 'valid'],
+  count: ['cnt', 'quantity', 'qty'],
+  active: ['enabled', 'is_active', 'available'],
 };
 
 /**
@@ -103,7 +102,7 @@ export function calculateNameScore(source: string, target: string): number {
   if (maxLen === 0) return 0;
 
   const normalizedDist = 1 - editDist / maxLen;
-  if (editDist <= 2 && maxLen >= 4) return Math.max(normalizedDist, 0.7);
+  if (editDist <= 1 && maxLen >= 4) return Math.max(normalizedDist, 0.7);
 
   // 6. 부분 문자열 포함
   if (sNorm.includes(tNorm) || tNorm.includes(sNorm)) {
@@ -264,13 +263,23 @@ function matchWithAbbreviations(source: string, target: string): boolean {
 }
 
 function matchWithSynonyms(source: string, target: string): boolean {
+  const sourceSegments = source.split('_');
+  const targetSegments = target.split('_');
+
   for (const [word, synonyms] of Object.entries(SYNONYM_MAP)) {
     const allTerms = [word, ...synonyms];
-    const sourceMatch = allTerms.some(t => source.includes(t));
-    const targetMatch = allTerms.some(t => target.includes(t));
+    const sourceMatch = allTerms.some(t => segmentMatch(sourceSegments, t));
+    const targetMatch = allTerms.some(t => segmentMatch(targetSegments, t));
     if (sourceMatch && targetMatch) return true;
   }
   return false;
+}
+
+function segmentMatch(fieldSegments: string[], term: string): boolean {
+  const termSegments = term.split('_');
+  if (!termSegments.every(ts => fieldSegments.includes(ts))) return false;
+  // 단일 세그먼트 용어는 필드의 50% 이상을 차지해야 false positive 방지
+  return termSegments.length / fieldSegments.length >= 0.5;
 }
 
 function extractPathKeywords(fullPath: string): string[] {
@@ -299,14 +308,18 @@ function calculateDescriptionBoost(
 ): number {
   if (!targetDescription && !targetMeaning) return 0;
 
-  const sNorm = toSnakeCase(normalizeFieldName(sourceName)).toLowerCase();
+  // 소스의 전체 경로를 세그먼트로 분해 (Vehicle.PassengerQuantity → [vehicle, passenger, quantity])
+  const sourceSegments = sourceName.split('.').flatMap(p =>
+    toSnakeCase(p).toLowerCase().split('_'),
+  );
   const allKeywords = extractKeywords(`${targetDescription || ''} ${targetMeaning || ''}`);
   if (allKeywords.length === 0) return 0;
 
   let matchCount = 0;
   for (const keyword of allKeywords) {
-    if (sNorm.includes(keyword) || keyword.includes(sNorm)) { matchCount++; continue; }
-    if (matchWithSynonyms(sNorm, keyword)) matchCount++;
+    if (sourceSegments.some(s => s === keyword || s.includes(keyword) || keyword.includes(s))) {
+      matchCount++;
+    }
   }
 
   if (matchCount === 0) return 0;
@@ -316,9 +329,10 @@ function calculateDescriptionBoost(
 
 function extractKeywords(text: string): string[] {
   return text
+    .replace(/([a-z])([A-Z])/g, '$1 $2')  // camelCase → spaces
     .toLowerCase()
     .replace(/[^a-z0-9\s_]/g, ' ')
-    .split(/\s+/)
+    .split(/[\s_]+/)
     .filter(w => w.length >= 2);
 }
 

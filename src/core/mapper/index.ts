@@ -189,10 +189,16 @@ export class MapperModule {
           descriptionCtx,
         );
 
-        if (score.totalScore > (bestMatch?.score ?? 0)) {
+        // 이미 매핑된 소스 필드는 패널티 적용 (중복 할당 방지)
+        let adjustedScore = score.totalScore;
+        if (mappedSourceFields.has(sourcePath)) {
+          adjustedScore *= 0.7;
+        }
+
+        if (adjustedScore > (bestMatch?.score ?? 0)) {
           bestMatch = {
             sourceField: sourcePath,
-            score: score.totalScore,
+            score: adjustedScore,
             type: this.determineTransformationType(sourceField, targetField, score.nameScore),
           };
         }
@@ -201,7 +207,7 @@ export class MapperModule {
       // strictMode: 모든 매핑을 ambiguous로 마킹 (사용자 확인 필요)
       const ambiguousThreshold = options?.strictMode ? 1.0 : 0.9;
 
-      if (bestMatch && bestMatch.score >= 0.45) {
+      if (bestMatch && bestMatch.score >= 0.4) {
         mappedSourceFields.add(bestMatch.sourceField);
         const transformation = this.determineTransformation(bestMatch.sourceField, targetField, bestMatch.type);
         mappings.push({
