@@ -5,7 +5,7 @@ import type { FieldSchema, ObjectSchema } from '../types/profile.js';
 import type { TargetProfile, TargetFieldSchema, SupportedLanguage } from '../types/target.js';
 import type { MappingRule, FieldMapping, TransformationType } from '../types/mapping.js';
 import type { ChangeSource, FieldChange } from '../types/history.js';
-import { calculateMatchScore, type MatchContext } from './field-matcher.js';
+import { calculateMatchScore, type MatchContext, type DescriptionContext } from './field-matcher.js';
 import { PluginError } from '../errors.js';
 
 export interface GenerateMappingParams {
@@ -178,10 +178,15 @@ export class MapperModule {
             .filter(m => m.sourceField !== null)
             .map(m => ({ sourceField: m.sourceField as string, targetField: m.targetField })),
         };
+        const descriptionCtx: DescriptionContext = {
+          targetDescription: targetField.description,
+          targetMeaning: targetField.businessContext?.meaning,
+        };
         const score = calculateMatchScore(
           sourcePath, targetPath,
           sourceField.type, targetField.type,
           context,
+          descriptionCtx,
         );
 
         if (score.totalScore > (bestMatch?.score ?? 0)) {
@@ -196,14 +201,28 @@ export class MapperModule {
       // strictMode: 모든 매핑을 ambiguous로 마킹 (사용자 확인 필요)
       const ambiguousThreshold = options?.strictMode ? 1.0 : 0.9;
 
-      if (bestMatch && bestMatch.score >= 0.3) {
+      if (bestMatch && bestMatch.score >= 0.45) {
         mappedSourceFields.add(bestMatch.sourceField);
+        const transformation = this.determineTransformation(bestMatch.sourceField, targetField, bestMatch.type);
         mappings.push({
           sourceField: bestMatch.sourceField,
           targetField: targetPath,
-          transformation: { type: bestMatch.type },
+          transformation,
           confidence: bestMatch.score,
           isAmbiguous: bestMatch.score < ambiguousThreshold,
+        });
+      } else if (bestMatch && bestMatch.score >= 0.3) {
+        // 낮은 신뢰도: default_value로 처리하되 후보를 userNote에 표시
+        mappings.push({
+          sourceField: null,
+          targetField: targetPath,
+          transformation: {
+            type: targetField.required ? 'constant' : 'default_value',
+            config: { value: targetField.required ? undefined : null },
+          },
+          confidence: bestMatch.score,
+          isAmbiguous: true,
+          userNote: `낮은 신뢰도 후보: "${bestMatch.sourceField}" (${(bestMatch.score * 100).toFixed(0)}%). update_mapping으로 확인해주세요.`,
         });
       } else if (options?.includeNullHandling !== false) {
         // 소스에 대응 필드 없음 (includeNullHandling=false이면 스킵)
@@ -231,6 +250,16 @@ export class MapperModule {
     target: TargetFieldSchema,
     nameScore: number,
   ): TransformationType {
+    // codeMapping이 존재하면 computed (value_map)
+    if (target.businessContext?.codeMapping && Object.keys(target.businessContext.codeMapping).length > 0) {
+      return 'computed';
+    }
+
+    // description에 value_map 패턴 ("A -> B") 감지
+    if (target.description && /\w+\s*(?:->|→)\s*\S+/.test(target.description)) {
+      return 'computed';
+    }
+
     // 타입이 동일하고 이름도 동일하면 direct
     if (source.type === target.type && nameScore >= 0.95) return 'direct';
 
@@ -241,6 +270,42 @@ export class MapperModule {
     if (source.type !== target.type) return 'type_cast';
 
     return 'rename';
+  }
+
+  /**
+   * transformation 결정 + value_map config 생성
+   */
+  private determineTransformation(
+    sourceField: string,
+    target: TargetFieldSchema,
+    baseType: TransformationType,
+  ): FieldMapping['transformation'] {
+    // codeMapping → computed with mapping config
+    if (target.businessContext?.codeMapping && Object.keys(target.businessContext.codeMapping).length > 0) {
+      return { type: 'computed', config: { mapping: target.businessContext.codeMapping } };
+    }
+
+    // description에서 value_map 패턴 파싱
+    if (baseType === 'computed' && target.description) {
+      const valueMap = this.parseValueMapFromDescription(target.description);
+      if (valueMap) {
+        return { type: 'computed', config: { mapping: valueMap } };
+      }
+    }
+
+    return { type: baseType };
+  }
+
+  private parseValueMapFromDescription(description: string): Record<string, string> | null {
+    const pattern = /(\w+)\s*(?:->|→)\s*(\S+)/g;
+    const map: Record<string, string> = {};
+    let match;
+    let found = false;
+    while ((match = pattern.exec(description)) !== null) {
+      map[match[1]] = match[2].replace(/,\s*$/, '');
+      found = true;
+    }
+    return found ? map : null;
   }
 
   private flattenFields(

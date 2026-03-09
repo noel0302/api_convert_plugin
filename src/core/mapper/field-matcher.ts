@@ -7,6 +7,7 @@ export interface MatchScore {
   typeScore: number;
   positionScore: number;
   patternScore: number;
+  descriptionBoost: number;
   totalScore: number;
 }
 
@@ -62,6 +63,17 @@ const SYNONYM_MAP: Record<string, string[]> = {
   created: ['crt', 'created_at', 'createdAt', 'reg_dt'],
   updated: ['upd', 'updated_at', 'updatedAt', 'mod_dt'],
   deleted: ['del', 'deleted_at', 'deletedAt', 'removed'],
+  // 차량/렌탈 도메인
+  seats: ['passenger', 'passenger_quantity', 'seating', 'pax'],
+  doors: ['door_count', 'door_quantity', 'doorcount'],
+  model: ['veh_make_model', 'vehicle_model', 'car_model', 'make_model'],
+  transmission: ['trans', 'gear', 'gearbox'],
+  air_condition: ['ac', 'aircon', 'air_conditioning', 'climate'],
+  // 공통 API 필드
+  image: ['img', 'photo', 'picture', 'thumbnail', 'pic'],
+  count: ['cnt', 'quantity', 'qty', 'num', 'total'],
+  identifier: ['id', 'key', 'uid', 'uuid', 'ref'],
+  active: ['enabled', 'is_active', 'available', 'valid'],
 };
 
 /**
@@ -113,9 +125,13 @@ export function calculateTypeScore(sourceType: string, targetType: string): numb
   if ((sourceType === 'string' && targetType === 'number') ||
       (sourceType === 'number' && targetType === 'string')) return 0.7;
 
-  // string ↔ boolean
+  // string ↔ boolean (XML/API에서 "true"/"false", "Y"/"N" 등 빈번)
   if ((sourceType === 'string' && targetType === 'boolean') ||
-      (sourceType === 'boolean' && targetType === 'string')) return 0.5;
+      (sourceType === 'boolean' && targetType === 'string')) return 0.7;
+
+  // number ↔ boolean (0/1 → true/false)
+  if ((sourceType === 'number' && targetType === 'boolean') ||
+      (sourceType === 'boolean' && targetType === 'number')) return 0.6;
 
   // object ↔ object (구조가 다를 수 있음)
   if (sourceType === 'object' && targetType === 'object') return 0.8;
@@ -124,6 +140,11 @@ export function calculateTypeScore(sourceType: string, targetType: string): numb
   if (sourceType === 'array' && targetType === 'array') return 0.8;
 
   return 0.1;
+}
+
+export interface DescriptionContext {
+  targetDescription?: string;
+  targetMeaning?: string;
 }
 
 export interface MatchContext {
@@ -143,15 +164,26 @@ export function calculateMatchScore(
   sourceType: string,
   targetType: string,
   context?: MatchContext,
+  descriptionCtx?: DescriptionContext,
 ): MatchScore {
-  const nameScore = calculateNameScore(sourceName, targetName);
+  const rawNameScore = calculateNameScore(sourceName, targetName);
   const typeScore = calculateTypeScore(sourceType, targetType);
   const positionScore = calculatePositionScore(context);
   const patternScore = calculatePatternScore(sourceName, targetName, context);
 
+  // 부모 경로 컨텍스트 부스트
+  const pathBoost = calculatePathContextBoost(sourceName, targetName);
+  // target description 키워드 부스트
+  const descriptionBoost = calculateDescriptionBoost(
+    sourceName,
+    descriptionCtx?.targetDescription,
+    descriptionCtx?.targetMeaning,
+  );
+
+  const nameScore = Math.min(1.0, rawNameScore + pathBoost + descriptionBoost);
   const totalScore = nameScore * 0.6 + typeScore * 0.3 + positionScore * 0.05 + patternScore * 0.05;
 
-  return { nameScore, typeScore, positionScore, patternScore, totalScore };
+  return { nameScore, typeScore, positionScore, patternScore, descriptionBoost, totalScore };
 }
 
 /**
@@ -239,6 +271,55 @@ function matchWithSynonyms(source: string, target: string): boolean {
     if (sourceMatch && targetMatch) return true;
   }
   return false;
+}
+
+function extractPathKeywords(fullPath: string): string[] {
+  const parts = fullPath.split('.');
+  if (parts.length <= 1) return [];
+  return parts.slice(0, -1).map(p => toSnakeCase(p).toLowerCase());
+}
+
+function calculatePathContextBoost(sourcePath: string, targetName: string): number {
+  const parentKeywords = extractPathKeywords(sourcePath);
+  if (parentKeywords.length === 0) return 0;
+
+  const tNorm = toSnakeCase(normalizeFieldName(targetName)).toLowerCase();
+
+  for (const keyword of parentKeywords) {
+    if (matchWithSynonyms(keyword, tNorm)) return 0.15;
+    if (tNorm.includes(keyword) || keyword.includes(tNorm)) return 0.1;
+  }
+  return 0;
+}
+
+function calculateDescriptionBoost(
+  sourceName: string,
+  targetDescription?: string,
+  targetMeaning?: string,
+): number {
+  if (!targetDescription && !targetMeaning) return 0;
+
+  const sNorm = toSnakeCase(normalizeFieldName(sourceName)).toLowerCase();
+  const allKeywords = extractKeywords(`${targetDescription || ''} ${targetMeaning || ''}`);
+  if (allKeywords.length === 0) return 0;
+
+  let matchCount = 0;
+  for (const keyword of allKeywords) {
+    if (sNorm.includes(keyword) || keyword.includes(sNorm)) { matchCount++; continue; }
+    if (matchWithSynonyms(sNorm, keyword)) matchCount++;
+  }
+
+  if (matchCount === 0) return 0;
+  const ratio = Math.min(matchCount / allKeywords.length, 1.0);
+  return 0.1 + ratio * 0.2;
+}
+
+function extractKeywords(text: string): string[] {
+  return text
+    .toLowerCase()
+    .replace(/[^a-z0-9\s_]/g, ' ')
+    .split(/\s+/)
+    .filter(w => w.length >= 2);
 }
 
 function levenshteinDistance(a: string, b: string): number {
