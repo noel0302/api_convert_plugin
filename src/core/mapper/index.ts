@@ -1,11 +1,10 @@
 import type { StorageService } from '../services/storage.js';
 import type { ConfigService } from '../services/config.js';
 import type { LogService } from '../services/log.js';
-import type { FieldSchema, ObjectSchema } from '../types/profile.js';
-import type { TargetProfile, TargetFieldSchema, SupportedLanguage } from '../types/target.js';
-import type { MappingRule, FieldMapping, MappingCandidate, TransformationType } from '../types/mapping.js';
+import type { ObjectSchema } from '../types/profile.js';
+import type { TargetProfile, SupportedLanguage } from '../types/target.js';
+import type { MappingRule, FieldMapping, TransformationType, TransformConfig } from '../types/mapping.js';
 import type { ChangeSource, FieldChange } from '../types/history.js';
-import { calculateMatchScore, type MatchContext, type DescriptionContext } from './field-matcher.js';
 import { PluginError } from '../errors.js';
 
 export interface GenerateMappingParams {
@@ -19,11 +18,13 @@ export interface GenerateMappingParams {
     typeName?: string;
     targetProfileId?: string;
   };
-  options?: {
-    strictMode?: boolean;
-    includeNullHandling?: boolean;
-    namingConvention?: 'camelCase' | 'snake_case' | 'PascalCase';
-  };
+  fieldMappings: Array<{
+    sourceField: string | string[] | null;
+    targetField: string;
+    transformation?: { type: TransformationType; config?: TransformConfig };
+    confidence?: number;
+    userNote?: string;
+  }>;
 }
 
 export interface GenerateMappingResult {
@@ -70,8 +71,15 @@ export class MapperModule {
     // 4. 타겟 프로파일 결정
     const targetProfile = await this.resolveTarget(params);
 
-    // 5. 필드 매핑 도출
-    const fieldMappings = this.mapFields(responseSchema, targetProfile.fields, params.options);
+    // 5. 필드 매핑 변환
+    const fieldMappings: FieldMapping[] = params.fieldMappings.map(fm => ({
+      sourceField: fm.sourceField,
+      targetField: fm.targetField,
+      transformation: fm.transformation ?? { type: 'rename' as TransformationType },
+      confidence: fm.confidence ?? 1.0,
+      isAmbiguous: false,
+      ...(fm.userNote ? { userNote: fm.userNote } : {}),
+    }));
 
     // 6. 매핑 규칙 조립
     const confidenceThreshold = (this.config.get('mapping.confidenceThreshold') as number) || 0.9;
@@ -151,210 +159,6 @@ export class MapperModule {
 
     await this.storage.saveMapping(mapping);
     return mapping;
-  }
-
-  private mapFields(
-    sourceSchema: ObjectSchema,
-    targetFields: Record<string, TargetFieldSchema>,
-    options?: GenerateMappingParams['options'],
-  ): FieldMapping[] {
-    const mappings: FieldMapping[] = [];
-    const sourceFields = this.flattenFields(sourceSchema.children, '');
-    const mappedSourceFields = new Set<string>();
-    const targetEntries = Object.entries(targetFields);
-
-    for (let targetIdx = 0; targetIdx < targetEntries.length; targetIdx++) {
-      const [targetPath, targetField] = targetEntries[targetIdx];
-
-      // top-3 후보 수집
-      const TOP_N = 3;
-      let topCandidates: { sourceField: string; score: ReturnType<typeof calculateMatchScore>; type: TransformationType }[] = [];
-
-      for (let sourceIdx = 0; sourceIdx < sourceFields.length; sourceIdx++) {
-        const [sourcePath, sourceField] = sourceFields[sourceIdx];
-        const context: MatchContext = {
-          sourceIndex: sourceIdx,
-          sourceTotal: sourceFields.length,
-          targetIndex: targetIdx,
-          targetTotal: targetEntries.length,
-          existingMappings: mappings
-            .filter(m => m.sourceField !== null)
-            .map(m => ({ sourceField: m.sourceField as string, targetField: m.targetField })),
-        };
-        const descriptionCtx: DescriptionContext = {
-          targetDescription: targetField.description,
-          targetMeaning: targetField.businessContext?.meaning,
-        };
-        const score = calculateMatchScore(
-          sourcePath, targetPath,
-          sourceField.type, targetField.type,
-          context,
-          descriptionCtx,
-        );
-
-        // object 소스가 children을 가지고 있고 타겟이 scalar면 스킵
-        if (sourceField.type === 'object' && sourceField.children &&
-            Object.keys(sourceField.children).length > 0 && targetField.type !== 'object') {
-          continue;
-        }
-
-        const candidate = {
-          sourceField: sourcePath,
-          score,
-          type: this.determineTransformationType(sourceField, targetField, score.nameScore),
-        };
-
-        if (topCandidates.length < TOP_N) {
-          topCandidates.push(candidate);
-          topCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
-        } else if (score.totalScore > topCandidates[TOP_N - 1].score.totalScore) {
-          topCandidates[TOP_N - 1] = candidate;
-          topCandidates.sort((a, b) => b.score.totalScore - a.score.totalScore);
-        }
-      }
-
-      const bestMatch = topCandidates[0] ?? null;
-      const ambiguousThreshold = options?.strictMode ? 1.0 : 0.9;
-
-      // candidates 배열 생성 (ambiguous일 때만)
-      const buildCandidates = (): MappingCandidate[] | undefined => {
-        if (topCandidates.length <= 1) return undefined;
-        return topCandidates.map(c => ({
-          sourceField: c.sourceField,
-          confidence: c.score.totalScore,
-          scoreBreakdown: {
-            nameScore: c.score.nameScore,
-            typeScore: c.score.typeScore,
-            descriptionBoost: c.score.descriptionBoost,
-          },
-          transformationType: c.type,
-        }));
-      };
-
-      if (bestMatch && bestMatch.score.totalScore >= 0.4) {
-        mappedSourceFields.add(bestMatch.sourceField);
-        const transformation = this.determineTransformation(bestMatch.sourceField, targetField, bestMatch.type);
-        const isAmbiguous = bestMatch.score.totalScore < ambiguousThreshold;
-        mappings.push({
-          sourceField: bestMatch.sourceField,
-          targetField: targetPath,
-          transformation,
-          confidence: bestMatch.score.totalScore,
-          isAmbiguous,
-          ...(isAmbiguous ? { candidates: buildCandidates() } : {}),
-        });
-      } else if (bestMatch && bestMatch.score.totalScore >= 0.3) {
-        mappings.push({
-          sourceField: null,
-          targetField: targetPath,
-          transformation: {
-            type: targetField.required ? 'constant' : 'default_value',
-            config: { value: targetField.required ? undefined : null },
-          },
-          confidence: bestMatch.score.totalScore,
-          isAmbiguous: true,
-          userNote: `낮은 신뢰도 후보: "${bestMatch.sourceField}" (${(bestMatch.score.totalScore * 100).toFixed(0)}%). update_mapping으로 확인해주세요.`,
-          candidates: buildCandidates(),
-        });
-      } else if (options?.includeNullHandling !== false) {
-        mappings.push({
-          sourceField: null,
-          targetField: targetPath,
-          transformation: {
-            type: targetField.required ? 'constant' : 'default_value',
-            config: { value: targetField.required ? undefined : null },
-          },
-          confidence: 0,
-          isAmbiguous: true,
-          userNote: targetField.required
-            ? '필수 필드인데 소스에 대응 필드가 없습니다. 값을 지정해주세요.'
-            : '소스에 대응 필드가 없습니다. null로 처리됩니다.',
-        });
-      }
-    }
-
-    return mappings;
-  }
-
-  private determineTransformationType(
-    source: FieldSchema,
-    target: TargetFieldSchema,
-    nameScore: number,
-  ): TransformationType {
-    // codeMapping이 존재하면 computed (value_map)
-    if (target.businessContext?.codeMapping && Object.keys(target.businessContext.codeMapping).length > 0) {
-      return 'computed';
-    }
-
-    // description에 value_map 패턴 ("A -> B") 감지
-    if (target.description && /\w+\s*(?:->|→)\s*\S+/.test(target.description)) {
-      return 'computed';
-    }
-
-    // 타입이 동일하고 이름도 동일하면 direct
-    if (source.type === target.type && nameScore >= 0.95) return 'direct';
-
-    // 이름이 다르지만 타입이 같으면 rename
-    if (source.type === target.type) return 'rename';
-
-    // 타입이 다르면 type_cast
-    if (source.type !== target.type) return 'type_cast';
-
-    return 'rename';
-  }
-
-  /**
-   * transformation 결정 + value_map config 생성
-   */
-  private determineTransformation(
-    sourceField: string,
-    target: TargetFieldSchema,
-    baseType: TransformationType,
-  ): FieldMapping['transformation'] {
-    // codeMapping → computed with mapping config
-    if (target.businessContext?.codeMapping && Object.keys(target.businessContext.codeMapping).length > 0) {
-      return { type: 'computed', config: { mapping: target.businessContext.codeMapping } };
-    }
-
-    // description에서 value_map 패턴 파싱
-    if (baseType === 'computed' && target.description) {
-      const valueMap = this.parseValueMapFromDescription(target.description);
-      if (valueMap) {
-        return { type: 'computed', config: { mapping: valueMap } };
-      }
-    }
-
-    return { type: baseType };
-  }
-
-  private parseValueMapFromDescription(description: string): Record<string, string> | null {
-    const pattern = /(\w+)\s*(?:->|→)\s*(\S+)/g;
-    const map: Record<string, string> = {};
-    let match;
-    let found = false;
-    while ((match = pattern.exec(description)) !== null) {
-      map[match[1]] = match[2].replace(/,\s*$/, '');
-      found = true;
-    }
-    return found ? map : null;
-  }
-
-  private flattenFields(
-    fields: Record<string, FieldSchema>,
-    prefix: string,
-  ): [string, FieldSchema][] {
-    const result: [string, FieldSchema][] = [];
-
-    for (const [key, field] of Object.entries(fields)) {
-      const path = prefix ? `${prefix}.${key}` : key;
-      result.push([path, field]);
-
-      if (field.type === 'object' && field.children) {
-        result.push(...this.flattenFields(field.children, path));
-      }
-    }
-
-    return result;
   }
 
   private async resolveTarget(params: GenerateMappingParams): Promise<TargetProfile> {

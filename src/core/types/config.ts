@@ -16,7 +16,6 @@ export interface PluginConfig {
   };
   mapping: {
     confidenceThreshold: number;
-    strictMode: boolean;
   };
   storage: {
     baseDir: string;
@@ -42,7 +41,6 @@ export const DEFAULT_CONFIG: PluginConfig = {
   },
   mapping: {
     confidenceThreshold: 0.9,
-    strictMode: false,
   },
   storage: {
     baseDir: '.api-convert',

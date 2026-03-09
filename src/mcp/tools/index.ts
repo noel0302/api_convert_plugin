@@ -54,7 +54,7 @@ export const toolDefinitions = [
   },
   {
     name: 'generate_mapping',
-    description: '소스 프로파일과 타겟을 비교하여 필드 매핑 규칙을 자동 생성',
+    description: '필드 매핑 규칙 저장. Claude가 분석한 fieldMappings를 받아 MappingRule로 저장.',
     inputSchema: {
       type: 'object' as const,
       properties: {
@@ -64,17 +64,29 @@ export const toolDefinitions = [
         targetDefinition: { type: 'string', description: '타겟 필드 정의 (JSON 문자열)' },
         language: { type: 'string', enum: ['typescript', 'php', 'java', 'python', 'kotlin', 'go'], description: '대상 언어' },
         typeName: { type: 'string', description: '타겟 타입명' },
-        options: {
-          type: 'object',
-          properties: {
-            strictMode: { type: 'boolean', description: '엄격 모드 (낮은 신뢰도 매핑 제외)' },
-            includeNullHandling: { type: 'boolean', description: 'nullable 필드 처리 포함' },
-            namingConvention: { type: 'string', enum: ['camelCase', 'snake_case', 'PascalCase'], description: '네이밍 컨벤션' },
+        fieldMappings: {
+          type: 'array',
+          items: {
+            type: 'object',
+            properties: {
+              sourceField: { description: '소스 필드 경로. null이면 매핑 없음 (값 지정 필요)' },
+              targetField: { type: 'string', description: '타겟 필드 경로' },
+              transformation: {
+                type: 'object',
+                properties: {
+                  type: { type: 'string', description: '변환 타입 (direct, rename, type_cast, computed 등)' },
+                  config: { type: 'object', description: '변환 설정 (mapping, value 등)' },
+                },
+              },
+              confidence: { type: 'number', description: '신뢰도 (0-1, 기본: 1.0)' },
+              userNote: { type: 'string', description: '참고 메모' },
+            },
+            required: ['targetField'],
           },
-          description: '매핑 옵션',
+          description: '필드 매핑 배열.',
         },
       },
-      required: ['apiProfile', 'endpoint', 'language'],
+      required: ['apiProfile', 'endpoint', 'language', 'fieldMappings'],
     },
   },
   {
@@ -201,7 +213,7 @@ export async function handleToolCall(
             typeName: args.typeName as string | undefined,
             targetProfileId: args.targetProfileId as string | undefined,
           },
-          options: args.options as GenerateMappingParams['options'],
+          fieldMappings: args.fieldMappings as GenerateMappingParams['fieldMappings'],
         });
         break;
 
