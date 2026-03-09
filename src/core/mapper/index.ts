@@ -189,16 +189,17 @@ export class MapperModule {
           descriptionCtx,
         );
 
-        // 이미 매핑된 소스 필드는 패널티 적용 (중복 할당 방지)
-        let adjustedScore = score.totalScore;
-        if (mappedSourceFields.has(sourcePath)) {
-          adjustedScore *= 0.7;
+        // object 소스가 children을 가지고 있고 타겟이 scalar면 스킵
+        // (VehMakeModel 객체 대신 VehMakeModel.Name 리프를 선호)
+        if (sourceField.type === 'object' && sourceField.children &&
+            Object.keys(sourceField.children).length > 0 && targetField.type !== 'object') {
+          continue;
         }
 
-        if (adjustedScore > (bestMatch?.score ?? 0)) {
+        if (score.totalScore > (bestMatch?.score ?? 0)) {
           bestMatch = {
             sourceField: sourcePath,
-            score: adjustedScore,
+            score: score.totalScore,
             type: this.determineTransformationType(sourceField, targetField, score.nameScore),
           };
         }
