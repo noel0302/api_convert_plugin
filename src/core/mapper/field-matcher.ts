@@ -111,7 +111,7 @@ export function calculateNameScore(source: string, target: string): number {
     return 0.5 * (shorter / longer);
   }
 
-  return normalizedDist > 0.5 ? normalizedDist * 0.5 : 0;
+  return normalizedDist > 0.5 ? normalizedDist * 0.3 : 0;
 }
 
 /**
@@ -317,9 +317,9 @@ function calculateDescriptionBoost(
 
   let matchCount = 0;
   for (const keyword of allKeywords) {
-    if (sourceSegments.some(s => s === keyword || s.includes(keyword) || keyword.includes(s))) {
-      matchCount++;
-    }
+    // 정확한 세그먼트 일치만 허용 (substring false positive 방지)
+    if (sourceSegments.includes(keyword)) { matchCount++; continue; }
+    if (matchWithSynonyms(keyword, sourceSegments.join('_'))) matchCount++;
   }
 
   if (matchCount === 0) return 0;
